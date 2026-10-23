@@ -1,0 +1,6 @@
+{
+  "name": "The Light of Akwa Ibom",
+  "description": "The Light of Akwa Ibom brings the people of Akwa Ibom State together through unity, culture, community engagement, education, empowerment, and economic opportunities. Brighter We Shine!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
