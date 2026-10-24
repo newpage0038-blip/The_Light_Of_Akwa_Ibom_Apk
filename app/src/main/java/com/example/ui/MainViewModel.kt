@@ -14,7 +14,17 @@ import com.example.data.model.NewsArticle
 import com.example.data.model.OpportunityItem
 import com.example.data.model.SupportMessage
 import com.example.data.model.UserProfile
+import com.example.data.model.CallSession
+import com.example.data.model.ChatUser
+import com.example.data.model.DirectMessage
+import com.example.data.model.GroupMessage
 import com.example.data.repository.AkwaIbomRepository
+import com.example.data.repository.ChatRepository
+import com.example.data.repository.EntertainmentRepository
+import com.example.data.repository.FootballRepository
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,7 +34,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainViewModel(
-  private val repository: AkwaIbomRepository
+  private val repository: AkwaIbomRepository,
+  private val chatRepository: ChatRepository? = null,
+  val entertainmentRepository: EntertainmentRepository = EntertainmentRepository(),
+  val footballRepository: FootballRepository = FootballRepository()
 ) : ViewModel() {
 
   // Navigation Stack
@@ -47,6 +60,127 @@ class MainViewModel(
   // Admin Mode Toggle
   private val _isAdminMode = MutableStateFlow(false)
   val isAdminMode: StateFlow<Boolean> = _isAdminMode.asStateFlow()
+
+  // Auth Dialog & Current User
+  private val _isAuthDialogOpen = MutableStateFlow(false)
+  val isAuthDialogOpen: StateFlow<Boolean> = _isAuthDialogOpen.asStateFlow()
+
+  private val _currentUserId = MutableStateFlow<String?>(FirebaseAuth.getInstance().currentUser?.uid)
+  val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()
+
+  private val _currentUserName = MutableStateFlow(FirebaseAuth.getInstance().currentUser?.displayName ?: "Akwa Ibom Citizen")
+  val currentUserName: StateFlow<String> = _currentUserName.asStateFlow()
+
+  // Communication: Members, Group Messages, Direct Messages, Calls
+  private val _chatUsersList = MutableStateFlow<List<ChatUser>>(emptyList())
+  val chatUsersList: StateFlow<List<ChatUser>> = _chatUsersList.asStateFlow()
+
+  private val _groupMessages = MutableStateFlow<List<GroupMessage>>(emptyList())
+  val groupMessages: StateFlow<List<GroupMessage>> = _groupMessages.asStateFlow()
+
+  private val _directMessages = MutableStateFlow<List<DirectMessage>>(emptyList())
+  val directMessages: StateFlow<List<DirectMessage>> = _directMessages.asStateFlow()
+
+  private val _selectedChatUser = MutableStateFlow<ChatUser?>(null)
+  val selectedChatUser: StateFlow<ChatUser?> = _selectedChatUser.asStateFlow()
+
+  private val _incomingCall = MutableStateFlow<CallSession?>(null)
+  val incomingCall: StateFlow<CallSession?> = _incomingCall.asStateFlow()
+
+  private val _activeCall = MutableStateFlow<CallSession?>(null)
+  val activeCall: StateFlow<CallSession?> = _activeCall.asStateFlow()
+
+  private var groupMessagesJob: Job? = null
+  private var usersJob: Job? = null
+  private var directMessagesJob: Job? = null
+  private var activeCallJob: Job? = null
+  private var incomingCallsJob: Job? = null
+
+  private val authStateListener = FirebaseAuth.AuthStateListener { auth ->
+    val user = auth.currentUser
+    val uid = user?.uid
+    _currentUserId.value = uid
+    _currentUserName.value = user?.displayName ?: "Akwa Ibom Citizen"
+    if (uid != null) {
+      startChatObservation(uid)
+    } else {
+      stopChatObservation()
+    }
+  }
+
+  init {
+    FirebaseAuth.getInstance().addAuthStateListener(authStateListener)
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    if (currentUser != null) {
+      startChatObservation(currentUser.uid)
+    }
+  }
+
+  fun initChatListeners() {
+    val uid = FirebaseAuth.getInstance().currentUser?.uid
+    _currentUserId.value = uid
+    _currentUserName.value = FirebaseAuth.getInstance().currentUser?.displayName ?: "Akwa Ibom Citizen"
+
+    if (uid != null) {
+      startChatObservation(uid)
+    } else {
+      stopChatObservation()
+    }
+  }
+
+  private fun startChatObservation(uid: String) {
+    if (chatRepository == null) return
+
+    groupMessagesJob?.cancel()
+    groupMessagesJob = viewModelScope.launch {
+      chatRepository.observeGroupMessages().collectLatest { msgs ->
+        _groupMessages.value = msgs
+      }
+    }
+
+    usersJob?.cancel()
+    usersJob = viewModelScope.launch {
+      chatRepository.observeUsers().collectLatest { users ->
+        _chatUsersList.value = users
+      }
+    }
+
+    startIncomingCallsObservation(uid)
+  }
+
+  private fun stopChatObservation() {
+    groupMessagesJob?.cancel()
+    groupMessagesJob = null
+    usersJob?.cancel()
+    usersJob = null
+    incomingCallsJob?.cancel()
+    incomingCallsJob = null
+    directMessagesJob?.cancel()
+    directMessagesJob = null
+    activeCallJob?.cancel()
+    activeCallJob = null
+
+    _groupMessages.value = emptyList()
+    _chatUsersList.value = emptyList()
+    _directMessages.value = emptyList()
+    _incomingCall.value = null
+    _activeCall.value = null
+  }
+
+  private fun startIncomingCallsObservation(uid: String) {
+    incomingCallsJob?.cancel()
+    incomingCallsJob = viewModelScope.launch {
+      chatRepository?.observeIncomingCalls(uid)?.collectLatest { calls ->
+        _incomingCall.value = calls.firstOrNull()
+      }
+    }
+  }
+
+  override fun onCleared() {
+    super.onCleared()
+    FirebaseAuth.getInstance().removeAuthStateListener(authStateListener)
+    stopChatObservation()
+  }
 
   // Active Discussion Post Comments Dialog
   private val _activePostForComments = MutableStateFlow<DiscussionPost?>(null)
@@ -106,13 +240,94 @@ class MainViewModel(
   // Navigation Methods
   fun navigateTo(screen: Screen) {
     if (_currentScreen.value == screen) return
+
+    // Dismiss open dialogs/sub-states when navigating to another screen
+    _selectedChatUser.value = null
+    _activePostForComments.value = null
+    _selectedNewsArticle.value = null
+    _selectedCultureItem.value = null
+    _isAuthDialogOpen.value = false
+
+    if (screen == Screen.HOME) {
+      _navigationStack.value = listOf(Screen.HOME)
+      _currentScreen.value = Screen.HOME
+      return
+    }
+
     val current = _navigationStack.value.toMutableList()
+    // When transitioning from Welcome or empty, establish HOME as root
+    if (current.isEmpty() || current.firstOrNull() == Screen.WELCOME) {
+      current.clear()
+      current.add(Screen.HOME)
+    } else if (current.firstOrNull() != Screen.HOME) {
+      current.add(0, Screen.HOME)
+    }
+
+    // Maintain proper history and prevent duplicate pages from repeatedly stacking up (Requirement 5)
+    current.removeAll { it == screen }
     current.add(screen)
+
     _navigationStack.value = current
     _currentScreen.value = screen
   }
 
+  fun navigateHome() {
+    // Return directly to the main dashboard without exiting the app (Requirement 3)
+    selectChatUser(null)
+    _activePostForComments.value = null
+    _commentsForActivePost.value = emptyList()
+    _selectedNewsArticle.value = null
+    _selectedCultureItem.value = null
+    _isAuthDialogOpen.value = false
+    _navigationStack.value = listOf(Screen.HOME)
+    _currentScreen.value = Screen.HOME
+  }
+
+  fun canNavigateBack(): Boolean {
+    // Returns true if there is an active sub-state (direct chat, comments, dialogs)
+    // or if the user is on any secondary screen
+    return _selectedChatUser.value != null ||
+      _activePostForComments.value != null ||
+      _selectedNewsArticle.value != null ||
+      _selectedCultureItem.value != null ||
+      _isAuthDialogOpen.value ||
+      (_currentScreen.value != Screen.HOME && _currentScreen.value != Screen.WELCOME) ||
+      _navigationStack.value.size > 1
+  }
+
   fun navigateBack(): Boolean {
+    // 1. If inside a direct 1-on-1 chat, return to community member list / tabs
+    if (_selectedChatUser.value != null) {
+      selectChatUser(null)
+      return true
+    }
+
+    // 2. If comments dialog is active, dismiss comments
+    if (_activePostForComments.value != null) {
+      _activePostForComments.value = null
+      _commentsForActivePost.value = emptyList()
+      return true
+    }
+
+    // 3. If news article dialog is open, close it
+    if (_selectedNewsArticle.value != null) {
+      _selectedNewsArticle.value = null
+      return true
+    }
+
+    // 4. If culture item dialog is open, close it
+    if (_selectedCultureItem.value != null) {
+      _selectedCultureItem.value = null
+      return true
+    }
+
+    // 5. If auth dialog is open, close it
+    if (_isAuthDialogOpen.value) {
+      _isAuthDialogOpen.value = false
+      return true
+    }
+
+    // 6. Navigate back in screen history stack (Requirement 2 & 5)
     val current = _navigationStack.value.toMutableList()
     if (current.size > 1) {
       current.removeAt(current.size - 1)
@@ -120,6 +335,7 @@ class MainViewModel(
       _currentScreen.value = current.last()
       return true
     } else if (_currentScreen.value != Screen.HOME && _currentScreen.value != Screen.WELCOME) {
+      // Return to main dashboard if on any secondary screen without further stack
       _currentScreen.value = Screen.HOME
       _navigationStack.value = listOf(Screen.HOME)
       return true
@@ -434,15 +650,153 @@ class MainViewModel(
   fun selectCultureItem(item: CultureItem?) {
     _selectedCultureItem.value = item
   }
+
+  // Auth Dialog Controls
+  fun openSignIn() {
+    _isAuthDialogOpen.value = true
+  }
+
+  fun closeSignIn() {
+    _isAuthDialogOpen.value = false
+  }
+
+  fun handleAuthSuccess() {
+    _isAuthDialogOpen.value = false
+    val firebaseUser = FirebaseAuth.getInstance().currentUser
+    val uid = firebaseUser?.uid
+    _currentUserId.value = uid
+    _currentUserName.value = firebaseUser?.displayName ?: "Akwa Ibom Citizen"
+
+    showFeedback("Welcome, ${_currentUserName.value}!")
+
+    if (uid != null && chatRepository != null) {
+      val localProfile = userProfile.value
+      val chatUser = ChatUser(
+        id = uid,
+        userId = uid,
+        displayName = firebaseUser.displayName ?: localProfile?.fullName ?: "Proud Akwa Ibomite",
+        email = firebaseUser.email ?: "",
+        photoUrl = firebaseUser.photoUrl?.toString(),
+        lga = localProfile?.lga ?: "Uyo",
+        occupation = localProfile?.occupation ?: "Akwa Ibom Citizen",
+        bio = localProfile?.bio ?: "Brighter We Shine!",
+        status = "online"
+      )
+      viewModelScope.launch {
+        try {
+          chatRepository.saveUserProfile(chatUser)
+        } catch (e: Exception) {
+          // Handled in repository
+        }
+      }
+      initChatListeners()
+    }
+  }
+
+  // 1-on-1 Chat Selection & Direct Message Observation
+  fun selectChatUser(user: ChatUser?) {
+    _selectedChatUser.value = user
+    directMessagesJob?.cancel()
+    if (user != null && chatRepository != null) {
+      directMessagesJob = viewModelScope.launch {
+        chatRepository.observeDirectMessages(user.userId).collectLatest { msgs ->
+          _directMessages.value = msgs
+        }
+      }
+    } else {
+      _directMessages.value = emptyList()
+    }
+  }
+
+  // Send Group Message
+  fun sendGroupMessage(text: String, type: String = "text", mediaData: String? = null) {
+    if (chatRepository == null) return
+    viewModelScope.launch {
+      try {
+        chatRepository.sendGroupMessage(text, type, mediaData)
+      } catch (e: Exception) {
+        showFeedback("Failed to send message: ${e.message}")
+      }
+    }
+  }
+
+  // Send Direct Message
+  fun sendDirectMessage(receiverId: String, receiverName: String, text: String, type: String = "text", mediaData: String? = null) {
+    if (chatRepository == null) return
+    viewModelScope.launch {
+      try {
+        chatRepository.sendDirectMessage(receiverId, receiverName, text, type, mediaData)
+      } catch (e: Exception) {
+        showFeedback("Failed to send message: ${e.message}")
+      }
+    }
+  }
+
+  // Calls: Initiate, Answer, Reject, End
+  fun initiateCall(user: ChatUser, callType: String) {
+    if (chatRepository == null) return
+    viewModelScope.launch {
+      try {
+        val callId = chatRepository.initiateCall(user.userId, user.displayName, callType)
+        observeActiveCall(callId)
+        showFeedback("Calling ${user.displayName}...")
+      } catch (e: Exception) {
+        showFeedback("Failed to start call: ${e.message}")
+      }
+    }
+  }
+
+  fun answerCall(call: CallSession) {
+    if (chatRepository == null) return
+    viewModelScope.launch {
+      chatRepository.updateCallStatus(call.id, "accepted")
+      _incomingCall.value = null
+      observeActiveCall(call.id)
+    }
+  }
+
+  fun rejectCall(call: CallSession) {
+    if (chatRepository == null) return
+    viewModelScope.launch {
+      chatRepository.updateCallStatus(call.id, "rejected")
+      _incomingCall.value = null
+    }
+  }
+
+  fun endCall(call: CallSession) {
+    if (chatRepository == null) return
+    viewModelScope.launch {
+      chatRepository.updateCallStatus(call.id, "ended")
+      _activeCall.value = null
+      activeCallJob?.cancel()
+    }
+  }
+
+  private fun observeActiveCall(callId: String) {
+    activeCallJob?.cancel()
+    activeCallJob = viewModelScope.launch {
+      chatRepository?.observeCallSession(callId)?.collectLatest { session ->
+        _activeCall.value = session
+        if (session == null || session.status == "ended" || session.status == "rejected") {
+          delay(1200)
+          _activeCall.value = null
+          activeCallJob?.cancel()
+        }
+      }
+    }
+  }
 }
 
 class MainViewModelFactory(
-  private val repository: AkwaIbomRepository
+  private val repository: AkwaIbomRepository,
+  private val chatRepository: ChatRepository? = null,
+  private val entertainmentRepository: EntertainmentRepository = EntertainmentRepository(),
+  private val footballRepository: FootballRepository = FootballRepository()
 ) : ViewModelProvider.Factory {
   @Suppress("UNCHECKED_CAST")
   override fun <T : ViewModel> create(modelClass: Class<T>): T {
     if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-      return MainViewModel(repository) as T
+      return MainViewModel(repository, chatRepository, entertainmentRepository, footballRepository) as T
     }
     throw IllegalArgumentException("Unknown ViewModel class")
   }

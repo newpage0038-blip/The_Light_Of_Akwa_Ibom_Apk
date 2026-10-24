@@ -1,6 +1,8 @@
 package com.example
 
+import android.app.Activity
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -22,16 +24,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.AppDatabase
@@ -43,11 +50,14 @@ import com.example.ui.components.AppBottomBar
 import com.example.ui.components.AppTopBar
 import com.example.ui.screens.AboutScreen
 import com.example.ui.screens.AdminScreen
+import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.BusinessScreen
 import com.example.ui.screens.CommunityScreen
 import com.example.ui.screens.ContactScreen
 import com.example.ui.screens.CultureScreen
+import com.example.ui.screens.EntertainmentScreen
 import com.example.ui.screens.EventsScreen
+import com.example.ui.screens.FootballScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.MembershipScreen
 import com.example.ui.screens.NewsScreen
@@ -62,10 +72,11 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
 
-    // Initialize Database & Repository
+    // Initialize Database & Repositories
     val database = AppDatabase.getDatabase(applicationContext, kotlinx.coroutines.GlobalScope)
     val repository = AkwaIbomRepository(database.appDao(), kotlinx.coroutines.GlobalScope)
-    val factory = MainViewModelFactory(repository)
+    val chatRepository = com.example.data.repository.ChatRepository(applicationContext)
+    val factory = MainViewModelFactory(repository, chatRepository)
     val viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
 
     setContent {
@@ -103,7 +114,20 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
   val selectedNewsArticle by viewModel.selectedNewsArticle.collectAsStateWithLifecycle()
   val selectedCultureItem by viewModel.selectedCultureItem.collectAsStateWithLifecycle()
 
+  // Real-time Communication State
+  val isAuthDialogOpen by viewModel.isAuthDialogOpen.collectAsStateWithLifecycle()
+  val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
+  val currentUserName by viewModel.currentUserName.collectAsStateWithLifecycle()
+  val chatUsersList by viewModel.chatUsersList.collectAsStateWithLifecycle()
+  val groupMessages by viewModel.groupMessages.collectAsStateWithLifecycle()
+  val directMessages by viewModel.directMessages.collectAsStateWithLifecycle()
+  val selectedChatUser by viewModel.selectedChatUser.collectAsStateWithLifecycle()
+  val incomingCall by viewModel.incomingCall.collectAsStateWithLifecycle()
+  val activeCall by viewModel.activeCall.collectAsStateWithLifecycle()
+
   val snackbarHostState = remember { SnackbarHostState() }
+  val context = LocalContext.current
+  var lastBackPressTime by remember { mutableLongStateOf(0L) }
 
   LaunchedEffect(feedbackMessage) {
     feedbackMessage?.let {
@@ -111,9 +135,32 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
     }
   }
 
-  // Handle system back navigation
-  BackHandler(enabled = currentScreen != Screen.WELCOME && currentScreen != Screen.HOME) {
-    viewModel.navigateBack()
+  // Handle system back navigation (Requirements 4, 5, 6, 7)
+  BackHandler(enabled = true) {
+    when {
+      // 1. Initial Welcome screen: close app if back is pressed
+      currentScreen == Screen.WELCOME -> {
+        (context as? Activity)?.finish()
+      }
+      // 2. Can navigate back (sub-states such as direct chat, comments dialog, or secondary screens)
+      viewModel.canNavigateBack() -> {
+        viewModel.navigateBack()
+      }
+      // 3. User is on Main Dashboard (Screen.HOME) - double-back to exit pattern
+      currentScreen == Screen.HOME -> {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastBackPressTime < 2000L) {
+          (context as? Activity)?.finish()
+        } else {
+          lastBackPressTime = currentTime
+          Toast.makeText(context, "Press Back again to exit", Toast.LENGTH_SHORT).show()
+        }
+      }
+      // 4. Fallback: navigate home to dashboard
+      else -> {
+        viewModel.navigateHome()
+      }
+    }
   }
 
   Scaffold(
@@ -124,6 +171,7 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
           currentScreen = currentScreen,
           isAdminMode = isAdminMode,
           onNavigateBack = { viewModel.navigateBack() },
+          onNavigateHome = { viewModel.navigateHome() },
           onToggleAdmin = {
             viewModel.toggleAdminMode()
             if (!isAdminMode) {
@@ -177,6 +225,22 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
           )
         }
 
+        Screen.ENTERTAINMENT -> {
+          EntertainmentScreen(
+            repository = viewModel.entertainmentRepository,
+            currentUserName = currentUserName,
+            onShowSnackbar = { viewModel.showFeedback(it) }
+          )
+        }
+
+        Screen.FOOTBALL -> {
+          FootballScreen(
+            repository = viewModel.footballRepository,
+            currentUserName = currentUserName,
+            onShowSnackbar = { viewModel.showFeedback(it) }
+          )
+        }
+
         Screen.ABOUT -> {
           AboutScreen()
         }
@@ -194,7 +258,23 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
             onVotePoll = { pollId, opt -> viewModel.votePoll(pollId, opt) },
             onCreateDiscussion = { title, content, cat ->
               viewModel.createDiscussion(title, content, cat)
-            }
+            },
+            currentUserId = currentUserId,
+            currentUserName = currentUserName,
+            usersList = chatUsersList,
+            groupMessages = groupMessages,
+            directMessages = directMessages,
+            incomingCall = incomingCall,
+            activeCall = activeCall,
+            activeChatUser = selectedChatUser,
+            onSelectChatUser = { viewModel.selectChatUser(it) },
+            onSendGroupMessage = { text, type, media -> viewModel.sendGroupMessage(text, type, media) },
+            onSendDirectMessage = { rId, rName, text, type, media -> viewModel.sendDirectMessage(rId, rName, text, type, media) },
+            onInitiateCall = { user, type -> viewModel.initiateCall(user, type) },
+            onAnswerCall = { call -> viewModel.answerCall(call) },
+            onRejectCall = { call -> viewModel.rejectCall(call) },
+            onEndCall = { call -> viewModel.endCall(call) },
+            onOpenSignIn = { viewModel.openSignIn() }
           )
         }
 
@@ -308,6 +388,19 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
             color = Color.White,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
+          )
+        }
+      }
+
+      // Global Auth Dialog
+      if (isAuthDialogOpen) {
+        Dialog(
+          onDismissRequest = { viewModel.closeSignIn() },
+          properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+          AuthScreen(
+            onAuthSuccess = { viewModel.handleAuthSuccess() },
+            onDismiss = { viewModel.closeSignIn() }
           )
         }
       }

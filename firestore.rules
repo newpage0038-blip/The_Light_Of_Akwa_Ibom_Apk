@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUser(data) {
+      return data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 100)) &&
+             (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 500000)) &&
+             (!('lga' in data) || (data.lga is string && data.lga.size() <= 50)) &&
+             (!('occupation' in data) || (data.occupation is string && data.occupation.size() <= 100)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 20));
+    }
+
+    function isValidGroupMessage(data) {
+      return data.senderId is string && data.senderId.size() > 0 && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() <= 100 &&
+             data.text is string && data.text.size() <= 5000 &&
+             data.type is string && (data.type == 'text' || data.type == 'image' || data.type == 'voice') &&
+             (!('senderPhoto' in data) || data.senderPhoto == null || (data.senderPhoto is string && data.senderPhoto.size() <= 500000)) &&
+             (!('mediaData' in data) || data.mediaData == null || (data.mediaData is string && data.mediaData.size() <= 800000));
+    }
+
+    function isValidDirectMessage(data) {
+      return data.conversationId is string && data.conversationId.size() > 0 && data.conversationId.size() <= 256 &&
+             data.senderId is string && data.senderId.size() > 0 && data.senderId.size() <= 128 &&
+             data.receiverId is string && data.receiverId.size() > 0 && data.receiverId.size() <= 128 &&
+             data.text is string && data.text.size() <= 5000 &&
+             data.type is string && (data.type == 'text' || data.type == 'image' || data.type == 'voice') &&
+             (!('senderName' in data) || (data.senderName is string && data.senderName.size() <= 100)) &&
+             (!('receiverName' in data) || (data.receiverName is string && data.receiverName.size() <= 100)) &&
+             (!('isRead' in data) || data.isRead is bool) &&
+             (!('mediaData' in data) || data.mediaData == null || (data.mediaData is string && data.mediaData.size() <= 800000));
+    }
+
+    function isValidCallSession(data) {
+      return data.callerId is string && data.callerId.size() > 0 && data.callerId.size() <= 128 &&
+             data.receiverId is string && data.receiverId.size() > 0 && data.receiverId.size() <= 128 &&
+             data.callType is string && (data.callType == 'audio' || data.callType == 'video') &&
+             data.status is string && (data.status == 'ringing' || data.status == 'accepted' || data.status == 'rejected' || data.status == 'ended') &&
+             (!('callerName' in data) || (data.callerName is string && data.callerName.size() <= 100)) &&
+             (!('receiverName' in data) || (data.receiverName is string && data.receiverName.size() <= 100));
+    }
+
+    // 1. Users Directory
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidUser(incoming());
+      allow update: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidUser(incoming());
+      allow delete: if false;
+    }
+
+    // 2. Community Group Messages
+    match /group_messages/{messageId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       incoming().senderId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidGroupMessage(incoming());
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
+    }
+
+    // 3. Direct 1-on-1 Messages
+    match /direct_messages/{messageId} {
+      allow get, list: if isSignedIn() &&
+                          (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isSignedIn() &&
+                       incoming().senderId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidDirectMessage(incoming());
+      allow update: if isSignedIn() &&
+                       (resource.data.receiverId == request.auth.uid || resource.data.senderId == request.auth.uid) &&
+                       isValidDirectMessage(incoming());
+      allow delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
+    }
+
+    // 4. Voice and Video Call Sessions
+    match /calls/{callId} {
+      allow get, list: if isSignedIn() &&
+                          (resource.data.callerId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isSignedIn() &&
+                       incoming().callerId == request.auth.uid &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidCallSession(incoming());
+      allow update: if isSignedIn() &&
+                       (resource.data.callerId == request.auth.uid || resource.data.receiverId == request.auth.uid) &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidCallSession(incoming());
+      allow delete: if isSignedIn() && resource.data.callerId == request.auth.uid;
+    }
+  }
+}

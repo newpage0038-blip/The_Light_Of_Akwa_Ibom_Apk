@@ -170,7 +170,107 @@ fun HomeScreen(
       }
     }
 
-    // 10 Main Navigation Sections Grid
+    // Flagship Hubs: Entertainment & Football
+    item {
+      Spacer(modifier = Modifier.height(20.dp))
+      Text(
+        text = "NEW HUBS & HUBS OF EXCELLENCE",
+        style = MaterialTheme.typography.titleSmall.copy(
+          fontWeight = FontWeight.ExtraBold,
+          letterSpacing = 0.5.sp
+        ),
+        color = AkwaGreenDark,
+        modifier = Modifier.padding(horizontal = 16.dp)
+      )
+      Spacer(modifier = Modifier.height(10.dp))
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+      ) {
+        // Entertainment Hub Card
+        Card(
+          modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onNavigate(Screen.ENTERTAINMENT) }
+            .testTag("home_entertainment_card"),
+          colors = CardDefaults.cardColors(containerColor = RadiantSunOrange),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.25f)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Screen.ENTERTAINMENT.icon,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+              )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+              text = "ENTERTAINMENT",
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+              color = Color.White
+            )
+            Text(
+              text = "Music, Comedy, Dance & TV",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color.White.copy(alpha = 0.9f)
+            )
+          }
+        }
+
+        // Football Centre Card
+        Card(
+          modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onNavigate(Screen.FOOTBALL) }
+            .testTag("home_football_card"),
+          colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.15f)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Screen.FOOTBALL.icon,
+                contentDescription = null,
+                tint = RadiantSunAmber,
+                modifier = Modifier.size(20.dp)
+              )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+              text = "FOOTBALL CENTRE",
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+              color = Color.White
+            )
+            Text(
+              text = "EPL, UCL & Live Fixtures",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color.White.copy(alpha = 0.85f)
+            )
+          }
+        }
+      }
+    }
+
+    // Main Navigation Sections Grid
     item {
       Spacer(modifier = Modifier.height(20.dp))
       Text(
@@ -188,6 +288,28 @@ fun HomeScreen(
         modifier = Modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
       ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          MenuTile(
+            screen = Screen.ENTERTAINMENT,
+            subtitle = "Music, Comedy & TV",
+            color = Color(0xFFD97706),
+            bgColor = Color(0xFFFEF3C7),
+            onClick = { onNavigate(Screen.ENTERTAINMENT) },
+            modifier = Modifier.weight(1f)
+          )
+          MenuTile(
+            screen = Screen.FOOTBALL,
+            subtitle = "EPL, UCL & Fan Zone",
+            color = Color(0xFF0F172A),
+            bgColor = Color(0xFFE2E8F0),
+            onClick = { onNavigate(Screen.FOOTBALL) },
+            modifier = Modifier.weight(1f)
+          )
+        }
+
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(10.dp)

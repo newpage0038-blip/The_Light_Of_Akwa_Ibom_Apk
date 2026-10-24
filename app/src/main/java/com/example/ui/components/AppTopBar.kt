@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -30,11 +33,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.Screen
+import com.example.ui.theme.AkwaGreenDark
 import com.example.ui.theme.AkwaGreenPrimary
 import com.example.ui.theme.RadiantSunAmber
 import com.example.ui.theme.RadiantSunOrange
@@ -45,6 +50,7 @@ fun AppTopBar(
   currentScreen: Screen,
   isAdminMode: Boolean,
   onNavigateBack: () -> Unit,
+  onNavigateHome: () -> Unit = {},
   onToggleAdmin: () -> Unit,
   onChantClicked: () -> Unit,
   modifier: Modifier = Modifier
@@ -120,19 +126,61 @@ fun AppTopBar(
       },
       navigationIcon = {
         if (currentScreen != Screen.HOME && currentScreen != Screen.WELCOME) {
-          IconButton(
-            onClick = onNavigateBack,
-            modifier = Modifier.testTag("top_bar_back_button")
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+              .padding(start = 6.dp)
+              .clip(RoundedCornerShape(20.dp))
+              .background(AkwaGreenPrimary.copy(alpha = 0.12f))
+              .clickable(
+                onClick = onNavigateBack,
+                role = Role.Button
+              )
+              .padding(horizontal = 10.dp, vertical = 6.dp)
+              .testTag("top_bar_back_button")
           ) {
             Icon(
               imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-              contentDescription = "Back",
-              tint = MaterialTheme.colorScheme.onSurface
+              contentDescription = "Back to previous page",
+              tint = AkwaGreenDark,
+              modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "Back",
+              style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp
+              ),
+              color = AkwaGreenDark
             )
           }
         }
       },
       actions = {
+        // Return to main dashboard button on secondary pages (Requirement 3)
+        if (currentScreen != Screen.HOME && currentScreen != Screen.WELCOME) {
+          IconButton(
+            onClick = onNavigateHome,
+            modifier = Modifier.testTag("top_bar_home_button")
+          ) {
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(AkwaGreenPrimary.copy(alpha = 0.12f)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Return to Dashboard",
+                tint = AkwaGreenDark,
+                modifier = Modifier.size(20.dp)
+              )
+            }
+          }
+        }
+
         // Community Chant quick button
         IconButton(
           onClick = onChantClicked,
