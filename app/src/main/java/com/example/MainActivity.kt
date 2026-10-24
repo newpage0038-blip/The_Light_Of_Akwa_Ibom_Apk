@@ -62,6 +62,7 @@ import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.MembershipScreen
 import com.example.ui.screens.NewsScreen
 import com.example.ui.screens.OpportunitiesScreen
+import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.RadiantSunOrange
@@ -340,6 +341,18 @@ fun AkwaIbomApp(viewModel: MainViewModel) {
             onSendMessage = { name, contact, subj, msg, type ->
               viewModel.sendSupportMessage(name, contact, subj, msg, type)
             }
+          )
+        }
+
+        Screen.SETTINGS -> {
+          SettingsScreen(
+            userProfile = userProfile,
+            currentUserId = currentUserId,
+            currentUserName = currentUserName,
+            onNavigate = { screen -> viewModel.navigateTo(screen) },
+            onOpenSignIn = { viewModel.openSignIn() },
+            onSignOut = { viewModel.signOut() },
+            onShowFeedback = { viewModel.showFeedback(it) }
           )
         }
 

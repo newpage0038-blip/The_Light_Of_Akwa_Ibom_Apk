@@ -253,6 +253,66 @@ fun AboutScreen(
       }
     }
 
+    // App Creator & Platform Information (Section 14)
+    Card(
+      shape = RoundedCornerShape(16.dp),
+      colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, AkwaGreenPrimary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+    ) {
+      Column(modifier = Modifier.padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(
+            imageVector = Icons.Default.AutoAwesome,
+            contentDescription = null,
+            tint = AkwaGreenPrimary,
+            modifier = Modifier.size(20.dp)
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = "APP CREATOR & PLATFORM INFO",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = AkwaGreenDark
+          )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+          text = "App Name: The Light of Akwa Ibom",
+          style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+          color = Color(0xFF1E293B)
+        )
+        Text(
+          text = "Official Slogan: BRIGHTER WE SHINE!",
+          style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+          color = RadiantSunOrange
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+          text = "App Creator: Daniel Ekpo",
+          style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+          color = Color(0xFF1E293B)
+        )
+        Text(
+          text = "Artist Name: A.K.A Newpage",
+          style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+          color = Color(0xFF475569)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+          text = "Purpose: A digital platform celebrating Akwa Ibom people, culture, community, creativity, and opportunities.",
+          style = MaterialTheme.typography.bodySmall,
+          color = Color(0xFF334155)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+          text = "Version: 1.0 • Built with Kotlin & Jetpack Compose",
+          style = MaterialTheme.typography.labelSmall,
+          color = Color(0xFF64748B)
+        )
+      }
+    }
+
     // Non-Individual Centered Commitment
     Card(
       shape = RoundedCornerShape(16.dp),

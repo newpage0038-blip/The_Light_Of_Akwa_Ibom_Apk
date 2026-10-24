@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.vector.ImageVector
 
+import androidx.compose.material.icons.filled.Settings
+
 enum class Screen(
   val title: String,
   val icon: ImageVector,
@@ -35,5 +37,6 @@ enum class Screen(
   EVENTS("Events & Gatherings", Icons.Default.Event, "Events"),
   MEMBERSHIP("Membership Card", Icons.Default.Person, "Membership"),
   CONTACT("Contact & Support", Icons.Default.Mail, "Contact"),
+  SETTINGS("Settings & Privacy", Icons.Default.Settings, "Settings"),
   ADMIN("Admin Center", Icons.Default.Security, "Admin")
 }

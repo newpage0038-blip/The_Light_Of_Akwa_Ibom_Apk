@@ -660,6 +660,13 @@ class MainViewModel(
     _isAuthDialogOpen.value = false
   }
 
+  fun signOut() {
+    FirebaseAuth.getInstance().signOut()
+    _currentUserId.value = null
+    _currentUserName.value = "Akwa Ibom Citizen"
+    showFeedback("Signed out securely")
+  }
+
   fun handleAuthSuccess() {
     _isAuthDialogOpen.value = false
     val firebaseUser = FirebaseAuth.getInstance().currentUser

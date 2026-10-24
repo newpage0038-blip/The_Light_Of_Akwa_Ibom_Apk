@@ -315,19 +315,19 @@ fun HomeScreen(
           horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
           MenuTile(
-            screen = Screen.ABOUT,
-            subtitle = "Vision & Values",
-            color = AkwaGreenPrimary,
-            bgColor = AkwaGreenLight,
-            onClick = { onNavigate(Screen.ABOUT) },
-            modifier = Modifier.weight(1f)
-          )
-          MenuTile(
             screen = Screen.COMMUNITY,
-            subtitle = "Discussions & Polls",
+            subtitle = "Chat & Hall",
             color = RadiantSunOrange,
             bgColor = RadiantSunLight,
             onClick = { onNavigate(Screen.COMMUNITY) },
+            modifier = Modifier.weight(1f)
+          )
+          MenuTile(
+            screen = Screen.MEMBERSHIP,
+            subtitle = "Members & Digital ID",
+            color = Color(0xFF059669),
+            bgColor = Color(0xFFD1FAE5),
+            onClick = { onNavigate(Screen.MEMBERSHIP) },
             modifier = Modifier.weight(1f)
           )
         }
@@ -389,11 +389,11 @@ fun HomeScreen(
             modifier = Modifier.weight(1f)
           )
           MenuTile(
-            screen = Screen.MEMBERSHIP,
-            subtitle = "Digital ID Badge",
-            color = Color(0xFF059669),
-            bgColor = Color(0xFFD1FAE5),
-            onClick = { onNavigate(Screen.MEMBERSHIP) },
+            screen = Screen.CULTURE,
+            subtitle = "Games & Quizzes",
+            color = Color(0xFFD97706),
+            bgColor = Color(0xFFFEF3C7),
+            onClick = { onNavigate(Screen.CULTURE) },
             modifier = Modifier.weight(1f)
           )
         }
@@ -404,18 +404,40 @@ fun HomeScreen(
         ) {
           MenuTile(
             screen = Screen.CONTACT,
-            subtitle = "Support & Feedback",
+            subtitle = "Help & Support",
             color = Color(0xFF4B5563),
             bgColor = Color(0xFFF3F4F6),
             onClick = { onNavigate(Screen.CONTACT) },
             modifier = Modifier.weight(1f)
           )
           MenuTile(
+            screen = Screen.SETTINGS,
+            subtitle = "Privacy & Account",
+            color = Color(0xFF0F766E),
+            bgColor = Color(0xFFCCFBF1),
+            onClick = { onNavigate(Screen.SETTINGS) },
+            modifier = Modifier.weight(1f)
+          )
+        }
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          MenuTile(
             screen = Screen.ADMIN,
             subtitle = "Moderation Panel",
             color = Color(0xFFDC2626),
             bgColor = Color(0xFFFEE2E2),
             onClick = { onNavigate(Screen.ADMIN) },
+            modifier = Modifier.weight(1f)
+          )
+          MenuTile(
+            screen = Screen.ABOUT,
+            subtitle = "Vision & Creator",
+            color = AkwaGreenPrimary,
+            bgColor = AkwaGreenLight,
+            onClick = { onNavigate(Screen.ABOUT) },
             modifier = Modifier.weight(1f)
           )
         }
