@@ -7,6 +7,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,14 +32,40 @@ jobs:
           gradle assembleDebug
           gradle bundleDebug
 
-      - name: Upload Signed APK
+      - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: The_Light_Of_Akwa_Ibom_Release_APK
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload Google Play AAB Bundle
+      - name: Upload Google Play AAB Bundle Artifact
         uses: actions/upload-artifact@v4
         with:
           name: The_Light_Of_Akwa_Ibom_AAB_Bundle
           path: app/build/outputs/bundle/debug/app-debug.aab
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0
+          name: "The Light of Akwa Ibom v1.0 (BRIGHTER WE SHINE!)"
+          body: |
+            ## The Light of Akwa Ibom — Official Release v1.0 🌟
+            **Official Slogan:** BRIGHTER WE SHINE!
+            **App Creator:** Daniel Ekpo (A.K.A Newpage)
+
+            ### Download:
+            - **Installable Android APK:** `The_Light_Of_Akwa_Ibom_Release.apk` (Signed, ready for phone installation)
+            - **Google Play App Bundle:** `The_Light_Of_Akwa_Ibom.aab` (Ready for Play Store upload)
+
+            ### What's Inside:
+            - ⚽ Complete Football Centre (EPL, Champions League, Live Scores, WAT Kickoffs)
+            - 🎵 Entertainment Centre (Afrobeats, Music Discovery, Comedy, Light TV)
+            - 🏛 Akwa Ibom Culture, Language (Ibibio, Annang, Oron) & Daily Quizzes
+            - ⬅ Smooth In-App & Android System Back Navigation
+            - 💬 Community, Group Chat & Member Directory
+            - 📱 Works offline with local Room Database caching
+          files: |
+            The_Light_Of_Akwa_Ibom_Release.apk
+            The_Light_Of_Akwa_Ibom.aab
